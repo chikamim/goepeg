@@ -33,75 +33,59 @@ const (
 	ScaleTypeFitMin           = iota
 )
 
-func Thumbnail(input string, output string, size int, quality int, scaleType ScaleType) error {
+type Result struct {
+	p    *C.uchar
+	size C.int
+}
+
+func (r Result) Release() {
+	C.free(unsafe.Pointer(r.p))
+}
+
+func (r Result) Bytes() []byte {
+	return C.GoBytes(unsafe.Pointer(r.p), r.size)
+}
+
+// Thumbnail returns resized jpeg bytes from input jpeg bytes and max width, max height and quality settings.
+func Thumbnail(b []byte, width, height, quality int) ([]byte, error) {
 	var img *C.Epeg_Image
 
-	img = C.epeg_file_open(C.CString(input))
+	p := unsafe.Pointer(C.CString(string(b)))
+	defer C.free(p)
+	img = C.epeg_memory_open((*C.uchar)(p), C.int(len(b)))
 
 	if img == nil {
-		return fmt.Errorf("Epeg could not open image %s", input)
+		return nil, fmt.Errorf("Epeg could not decode input image")
 	}
-
 	defer C.epeg_close(img)
 
 	var cw C.int
 	var ch C.int
-
 	C.epeg_size_get(img, &cw, &ch)
+	w, h := imageSize(int(cw), int(ch), width, height)
 
-	w := int(cw)
-	h := int(ch)
-
-	var thumbWidth int
-	var thumbHeight int
-
-	if scaleType == ScaleTypeFitMin {
-		if w > h {
-			if w > size {
-				thumbWidth = size * w / h
-				thumbHeight = size
-			} else {
-				thumbWidth = w
-				thumbHeight = h
-			}
-		} else {
-			if h > size {
-				thumbWidth = size
-				thumbHeight = size * h / w
-			} else {
-				thumbWidth = w
-				thumbHeight = h
-			}
-		}
-	} else {
-		if w > h {
-			if w > size {
-				thumbWidth = size
-				thumbHeight = size * h / w
-			} else {
-				thumbWidth = w
-				thumbHeight = h
-			}
-		} else {
-			if h > size {
-				thumbWidth = size * w / h
-				thumbHeight = size
-			} else {
-				thumbWidth = w
-				thumbHeight = h
-			}
-		}
-	}
-
-	C.epeg_decode_size_set(img, C.int(thumbWidth), C.int(thumbHeight))
+	C.epeg_decode_size_set(img, C.int(w), C.int(h))
 	C.epeg_quality_set(img, C.int(quality))
-	C.epeg_file_output_set(img, C.CString(output))
+
+	res := Result{}
+	defer res.Release()
+	C.epeg_memory_output_set(img, &res.p, &res.size)
 
 	if C.epeg_encode(img) != 0 {
-		return fmt.Errorf("Epeg encode error")
+		return nil, fmt.Errorf("Epeg encode error")
 	}
+	return res.Bytes(), nil
+}
 
-	return nil
+func imageSize(imageWidth, imageHeight, maxWidth, maxHeight int) (width, height int) {
+	if imageWidth > imageHeight {
+		width = maxWidth
+		height = int(float64(maxHeight) * float64(imageHeight) / float64(imageWidth))
+	} else {
+		width = int(float64(maxWidth) * float64(imageWidth) / float64(imageHeight))
+		height = maxHeight
+	}
+	return
 }
 
 func Transform(input string, output string, transform TransformType) error {

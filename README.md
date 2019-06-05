@@ -1,5 +1,4 @@
-goepeg
-======
+# goepeg
 
 Go wrapper for epeg.
 
@@ -10,7 +9,7 @@ The library has bundled archive which are automatically linked. This means that 
 ## Install
 
 ```
-go get github.com/koofr/goepeg
+go get github.com/chikamim/goepeg
 ```
 
 ## Testing

@@ -119,33 +119,12 @@ var transformOutput []byte = []byte{
 }
 
 func TestThumbnail(t *testing.T) {
-	input, err := ioutil.TempFile("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(input.Name())
-
-	input.Write(sourceInput)
-	input.Close()
-
-	output, err := ioutil.TempFile("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(output.Name())
-	output.Close()
-
-	err = Thumbnail(input.Name(), output.Name(), 4, 75, ScaleTypeFitMin)
+	thumb, err := Thumbnail(sourceInput, 4, 4, 75)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	bytes, err := ioutil.ReadFile(output.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(bytes, thumbnailOutput) {
+	if !reflect.DeepEqual(thumb, thumbnailOutput) {
 		t.Errorf("Thumbnail failed")
 	}
 }
